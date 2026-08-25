@@ -1,1 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arrow Image Switcher</title>
+    <style>
+        /* Center everything on the page */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+
+        /* Container for the image framework */
+        .gallery-container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Styled image frame */
+        .image-frame {
+            width: 500px;
+            height: 330px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        /* Button group layout */
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        /* Custom styled arrow buttons */
+        .arrow-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .arrow-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .arrow-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="gallery-container">
+        <!-- Main Image Display -->
+        <img id="display-image" class="image-frame" src="https://picsum.photos" alt="Gallery Image">
+
+        <!-- On-Screen Arrow Buttons -->
+        <div class="controls">
+            <button class="arrow-btn" onclick="navigate('left')">◀ Left</button>
+            <button class="arrow-btn" onclick="navigate('down')">▼ Down</button>
+            <button class="arrow-btn" onclick="navigate('right')">Right ▶</button>
+        </div>
+    </div>
+
+    <script>
+        // Array of sample image URLs (Using placeholder images for instant preview)
+        const images = [
+            "https://picsum.photos", // Image 1
+            "https://picsum.photos", // Image 2
+            "https://picsum.photos", // Image 3
+            "https://picsum.photos"  // Image 4
+        ];
+
+        // Track the currently displayed image index
+        let currentIndex = 0;
+        const imgElement = document.getElementById("display-image");
+
+        // Main function to update the image based on direction
+        function navigate(direction) {
+            if (direction === 'right' || direction === 'down') {
+                // Move forward, loop back to start if at the end
+                currentIndex = (currentIndex + 1) % images.length;
+            } else if (direction === 'left') {
+                // Move backward, loop to the end if at the start
+                currentIndex = (currentIndex - 1 + images.length) % images.length;
+            }
+            
+            // Apply the new image source to the element
+            imgElement.src = images[currentIndex];
+        }
+
+        // Optional: Listen for physical keyboard arrow keys for a better user experience
+        window.addEventListener("keydown", (event) => {
+            if (event.key === "ArrowRight") {
+                navigate('right');
+            } else if (event.key === "ArrowLeft") {
+                navigate('left');
+            } else if (event.key === "ArrowDown") {
+                navigate('down');
+            }
+        });
+    </script>
+
+</body>
+</html>
 
