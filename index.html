@@ -57,7 +57,7 @@
             function setDirection(direction) {
                 if (isTurning) return;
 
-                const is SwitchingSide = (currentDirection === "left" && direction === "right") ||
+                const isSwitchingSide = (currentDirection === "left" && direction === "right") ||
                     (currentDirection === "right" && direction === "left");
 
                 if (isSwitchingSide) {
