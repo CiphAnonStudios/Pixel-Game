@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <meta charset="UFT-8"/>
+        <meta charset="UTF-8"/>
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <title>Testing</title>
         <style>
@@ -34,6 +34,7 @@
                 forward: "ToonyTimeForward.png",
                 right: "ToonyTimeTurn1.png"
             };
+
             let currentDirection = "forward";
             
             function setDirection(direction) {
@@ -51,14 +52,13 @@
                 }
             }
 
-            document.addEventlistener("keydown", (e) => {
+            document.addEventListener("keydown", (e) => {
                 const key = e.key.toLowerCase();
 
-                if (key === "a") setDirection ("left");
-                if (key === "d") setDirection ("right");
-                if (key === "s") setDirection ("forward");
+                if (key === "a") setDirection("left");
+                if (key === "d") setDirection("right");
+                if (key === "s") setDirection("forward");
             });
         </script>
     </body>
-    
 </html>
