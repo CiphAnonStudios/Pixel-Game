@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Testing</title>
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            position: relative;
+            background: #111;
+            overflow: hidden;
+        }
+
+        #character {
+            width: 300px;
+            height: auto;
+            image-rendering: pixelated;
+            user-select: none;
+            -webkit-user-drag: none;
+            position: absolute;
+            left: 0;
+            top: 0;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <img id="character" src="ToonyTimeForward.png" alt="Character"/>
+
+    <script>
+        const character = document.getElementById("character");
+
+        const images = {
+            forward: "ToonyTimeForward.png",
+            right: "ToonyTimeTurn1.png"
+        };
+
+        let currentDirection = "forward";
+        let isTurning = false;
+
+        let x = window.innerWidth / 2;
+        let y = window.innerHeight - 300;
+        let velocityY = 0;
+
+        const speed = 4;
+        const gravity = 0.8;
+        const jumpPower = -16;
+        const groundY = window.innerHeight - 300;
+
+        const keys = {
+            a: false,
+            d: false
+        };
+
+        let isOnGround = true;
+
+        function applyDirection(direction) {
+            currentDirection = direction;
+
+            if (direction === "left") {
+                character.src = images.right;
+                character.style.transform = "scaleX(-1)";
+            } else if (direction === "right") {
+                character.src = images.right;
+                character.style.transform = "scaleX(1)";
+            } else {
+                character.src = images.forward;
+                character.style.transform = "scaleX(1)";
+            }
+        }
+
+        function setDirection(direction) {
+            if (isTurning) return;
+
+            const isSwitchingSide =
+                (currentDirection === "left" && direction === "right") ||
+                (currentDirection === "right" && direction === "left");
+
+            if (isSwitchingSide) {
+                isTurning = true;
+                character.src = images.forward;
+                character.style.transform = "scaleX(1)";
+
+                setTimeout(() => {
+                    applyDirection(direction);
+                    isTurning = false;
+                }, 16);
+            } else {
+                applyDirection(direction);
+            }
+        }
+
+        function update() {
+            if (keys.a) {
+                x -= speed;
+                setDirection("left");
+            }
+
+            if (keys.d) {
+                x += speed;
+                setDirection("right");
+            }
+
+            velocityY += gravity;
+            y += velocityY;
+
+            if (y >= groundY) {
+                y = groundY;
+                velocityY = 0;
+                isOnGround = true;
+            } else {
+                isOnGround = false;
+            }
+
+            character.style.left = x + "px";
+            character.style.top = y + "px";
+
+            requestAnimationFrame(update);
+        }
+
+        document.addEventListener("keydown", (e) => {
+            const key = e.key.toLowerCase();
+
+            if (key === "a") keys.a = true;
+            if (key === "d") keys.d = true;
+
+            if (key === "s") {
+                keys.a = false;
+                keys.d = false;
+                character.src = images.forward;
+                character.style.transform = "scaleX(1)";
+                currentDirection = "forward";
+            }
+
+            if (key === "w" && isOnGround) {
+                velocityY = jumpPower;
+                isOnGround = false;
+            }
+
+            if (e.code === "Space" && isOnGround) {
+                velocityY = jumpPower;
+                isOnGround = false;
+            }
+        });
+
+        document.addEventListener("keyup", (e) => {
+            const key = e.key.toLowerCase();
+            if (key === "a") keys.a = false;
+            if (key === "d") keys.d = false;
+        });
+
+        update();
+    </script>
+</body>
+</html>
