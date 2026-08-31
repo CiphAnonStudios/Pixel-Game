@@ -36,8 +36,10 @@
             };
 
             let currentDirection = "forward";
+            let isTurning = false;
             
-            function setDirection(direction) {
+            function setDirection(direction) 
+            {
                 currentDirection = direction;
 
                 if (direction === "left") {
@@ -49,6 +51,26 @@
                 } else {
                     character.src = images.forward;
                     character.style.transform = "scaleX(1)";
+                }
+            }
+
+            function setDirection(direction) {
+                if (isTurning) return;
+
+                const is SwitchingSide = (currentDirection === "left" && direction === "right") ||
+                    (currentDirection === "right" && direction === "left");
+
+                if (isSwitchingSide) {
+                    isTurning = true;
+                    character.src = images.forward;
+                    character.style.transform = "scaleX(1)";
+
+                    setTimeout(() => {
+                        applyDirection(direction);
+                        isTuring = false;
+                    }, 16);
+                } else {
+                    applyDirection(direction);
                 }
             }
 
