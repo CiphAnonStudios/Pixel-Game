@@ -101,8 +101,17 @@
 
         document.addEventListener("keydown", (e) => {
             const key = e.key.toLowerCase();
+
             if (key === "a") keys.a = true;
             if (key === "d") keys.d = true;
+
+            if (key === "s") {
+                keys.a = false;
+                keys.d = false;
+                character.src = images.forward;
+                character.style.transform = "translateY(-50%) scaleX(1)";
+                currentDirection = "forward";
+            }
         });
 
         document.addEventListener("keyup", (e) => {
