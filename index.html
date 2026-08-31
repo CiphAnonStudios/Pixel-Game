@@ -1,89 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keyboard Image Switcher</title>
-    <style>
-        /* Centers the image wrapper on the screen */
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-            font-family: sans-serif;
-            flex-direction: column;
-        }
-
-        .container {
-            text-align: center;
-        }
-
-        /* Container for the image to maintain layout stability */
-        .image-box {
-            width: 400px;
-            height: 300px;
-            overflow: hidden;
-            border: 5px solid #fff;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            background-color: #ddd;
-        }
-
-        /* Smoothly transition the flipping effect */
-        img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.2s ease-in-out;
-        }
-
-        /* Flips the image horizontally */
-        .flipped {
-            transform: scaleX(-1);
-        }
-
-        .instructions {
-            margin-top: 20px;
-            color: #555;
-        }
-    </style>
-</head>
-<body>
-
-    <div class="container">
-        <div class="image-box">
-            <!-- Initial image loaded on page start -->
-            <img id="display-image" src="ToonyTimeForward.png" alt="Display">
-        </div>
-        <p class="instructions">Press <strong>&larr; Left</strong>, <strong>&rarr; Right</strong>, or <strong>&darr; Down</strong> on your keyboard.</p>
-    </div>
-
-    <script>
-        // Store image URLs in constants
-        const horizontalImage = "ToonyTimeTurn1.png"; // Same image for Left and Right
-        const downImage = "ToonyTimeForward.png";       // Different image for Down
-
-        const imgElement = document.getElementById('display-image');
-
-        // Listen for keyboard button presses
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'ArrowLeft') {
-                imgElement.src = horizontalImage;
-                imgElement.classList.add('flipped'); // Apply horizontal flip
-            } 
-            else if (event.key === 'ArrowRight') {
-                imgElement.src = horizontalImage;
-                imgElement.classList.remove('flipped'); // Remove horizontal flip (returns to normal)
-            } 
-            else if (event.key === 'ArrowDown') {
-                imgElement.src = downImage;
-                imgElement.classList.remove('flipped'); // Ensure down image isn't flipped
+    <head>
+        <meta charset="UFT-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>Testing</title>
+        <style>
+            body {
+                margin:0;
+                height:100vh;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                background:#111;
+                overflow:hidden;
             }
-        });
-    </script>
+            
+            #character {
+                width:300px;
+                height:auto;
+                image-rendering:pixelated;
+                user-select:none;
+                -webkit-user-drag:none;
+                transition:none;
+            }
+        </style>
+    </head>
+    <body>
+        <img id="character" src="ToonyTimeForward.png" alt="Character"/>
+        <script>
+            const character = document.getElementById("character");
 
-</body>
+            const images = {
+                forward: "ToonyTimeForward.png",
+                right: "ToonyTimeTurn1.png"
+            };
+            let currentDirection = "forward";
+            
+            function setDirection(direction) {
+                currentDirection = direction;
+
+                if (direction === "left") {
+                    character.src = images.right;
+                    character.style.transform = "scaleX(-1)";
+                } else if (direction === "right") {
+                    character.src = images.right;
+                    character.style.transform = "scaleX(1)";
+                } else {
+                    character.src = images.forward;
+                    character.style.transform = "scaleX(1)";
+                }
+            }
+
+            document.addEventlistener("keydown", (e) => {
+                const key = e.key.toLowerCase();
+
+                if (key === "a") setDirection ("left");
+                if (key === "d") setDirection ("right");
+                if (key === "s") setDirection ("forward");
+            });
+        </script>
+    </body>
+    
 </html>
