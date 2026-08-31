@@ -19,11 +19,10 @@
             image-rendering: pixelated;
             user-select: none;
             -webkit-user-drag: none;
-            transition: none;
             position: absolute;
-            left: 50%;
+            left: 0;
             top: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateY(-50%);
         }
     </style>
 </head>
@@ -40,25 +39,27 @@
 
         let currentDirection = "forward";
         let isTurning = false;
-        let x = window.innerWidth / 2;
-        const speed = 5;
 
-        function updatePosition() {
-            character.style.left = x + "px";
-        }
+        let x = window.innerWidth / 2;
+        const speed = 4;
+
+        const keys = {
+            a: false,
+            d: false
+        };
 
         function applyDirection(direction) {
             currentDirection = direction;
 
             if (direction === "left") {
                 character.src = images.right;
-                character.style.transform = "translate(-50%, -50%) scaleX(-1)";
+                character.style.transform = "translateY(-50%) scaleX(-1)";
             } else if (direction === "right") {
                 character.src = images.right;
-                character.style.transform = "translate(-50%, -50%) scaleX(1)";
+                character.style.transform = "translateY(-50%) scaleX(1)";
             } else {
                 character.src = images.forward;
-                character.style.transform = "translate(-50%, -50%) scaleX(1)";
+                character.style.transform = "translateY(-50%) scaleX(1)";
             }
         }
 
@@ -72,7 +73,7 @@
             if (isSwitchingSide) {
                 isTurning = true;
                 character.src = images.forward;
-                character.style.transform = "translate(-50%, -50%) scaleX(1)";
+                character.style.transform = "translateY(-50%) scaleX(1)";
 
                 setTimeout(() => {
                     applyDirection(direction);
@@ -83,23 +84,34 @@
             }
         }
 
-        document.addEventListener("keydown", (e) => {
-            const key = e.key.toLowerCase();
-
-            if (key === "a") {
+        function update() {
+            if (keys.a) {
                 x -= speed;
-                updatePosition();
                 setDirection("left");
             }
 
-            if (key === "d") {
+            if (keys.d) {
                 x += speed;
-                updatePosition();
                 setDirection("right");
             }
 
-            if (key === "s") setDirection("forward");
+            character.style.left = x + "px";
+            requestAnimationFrame(update);
+        }
+
+        document.addEventListener("keydown", (e) => {
+            const key = e.key.toLowerCase();
+            if (key === "a") keys.a = true;
+            if (key === "d") keys.d = true;
         });
+
+        document.addEventListener("keyup", (e) => {
+            const key = e.key.toLowerCase();
+            if (key === "a") keys.a = false;
+            if (key === "d") keys.d = false;
+        });
+
+        update();
     </script>
 </body>
 </html>
