@@ -14,25 +14,20 @@
             overflow: hidden;
         }
 
-        /* The wrapper is what stays in the same position */
-        #character-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 300px;
-            height: auto;
-            overflow: visible;
-        }
-
         #character {
-            display: block;
             width: 300px;
             height: auto;
             image-rendering: pixelated;
             user-select: none;
             -webkit-user-drag: none;
+            position: absolute;
+            left: 0;
+            top: 0;
 
-            /* Keeps the bottom of the image anchored */
+            /*
+             * The bottom stays in place when the image
+             * gets slightly shorter.
+             */
             transform-origin: bottom center;
         }
     </style>
@@ -40,315 +35,483 @@
 
 <body>
 
-<div id="character-container">
-    <img id="character" src="ToonyTimeForward.png" alt="Character"/>
-</div>
+<img id="character" src="ToonyTimeForward.png" alt="Character"/>
 
 <script>
-    const character = document.getElementById("character");
-    const container = document.getElementById("character-container");
 
-    const images = {
-        forward: "ToonyTimeForward.png",
-        crouch: "ToonyTimeCrouch.png",
-        right: "ToonyTimeTurn1.png"
-    };
+const character = document.getElementById("character");
 
-    let currentDirection = "forward";
-    let isTurning = false;
-    let isCrouching = false;
-    let crouchTimer = null;
+const images = {
+    forward: "ToonyTimeForward.png",
+    crouch: "ToonyTimeCrouch.png",
+    right: "ToonyTimeTurn1.png"
+};
 
-    let x = window.innerWidth / 2;
-    let y = window.innerHeight - 300;
-    let velocityY = 0;
+let currentDirection = "forward";
+let isTurning = false;
+let isCrouching = false;
+let crouchTimer = null;
 
-    const speed = 4;
-    const gravity = 0.8;
-    const jumpPower = -16;
-    const groundY = window.innerHeight - 300;
+let x = window.innerWidth / 2;
+let y = window.innerHeight - 300;
+let velocityY = 0;
 
-    const keys = {
-        a: false,
-        d: false,
-        s: false,
-        w: false,
-        space: false
-    };
+const speed = 4;
+const gravity = 0.8;
+const jumpPower = -16;
+const groundY = window.innerHeight - 300;
 
-    let isOnGround = true;
+const keys = {
+    a: false,
+    d: false,
+    s: false,
+    w: false,
+    space: false
+};
 
-    // -------------------------
-    // IDLE BOB / SQUASH
-    // -------------------------
+let isOnGround = true;
 
-    let idleTime = 0;
 
-    // 2px is the maximum amount the TOP moves down.
-    // The bottom does not move.
-    const idleAmount = 2;
+/* =========================================================
+   IDLE HEIGHT ANIMATION
+   ========================================================= */
 
-    const idleSpeed = 0.08;
+let idleTime = 0;
 
-    function noButtonsPressed() {
-        return (
-            !keys.a &&
-            !keys.d &&
-            !keys.s &&
-            !keys.w &&
-            !keys.space
-        );
+/*
+ * How much shorter the image becomes.
+ *
+ * 0.015 = 1.5% shorter
+ * 0.02  = 2% shorter
+ *
+ * Keep this small so the character doesn't look squashed.
+ */
+const idleSquash = 0.015;
+
+/*
+ * How fast the idle animation moves.
+ */
+const idleSpeed = 0.07;
+
+
+/*
+ * Checks whether absolutely no movement buttons
+ * are currently being pressed.
+ */
+function noButtonsPressed() {
+
+    return (
+        !keys.a &&
+        !keys.d &&
+        !keys.s &&
+        !keys.w &&
+        !keys.space
+    );
+}
+
+
+/*
+ * Updates the image's vertical scale.
+ *
+ * The image gets slightly shorter while idle.
+ * Because transform-origin is bottom center,
+ * the bottom stays exactly where it was.
+ */
+function updateIdleAnimation() {
+
+    if (
+        noButtonsPressed() &&
+        isOnGround &&
+        !isCrouching
+    ) {
+
+        idleTime += idleSpeed;
+
+        /*
+         * Smooth wave from 0 → 1 → 0.
+         */
+        const wave =
+            (Math.sin(idleTime) + 1) / 2;
+
+        /*
+         * 1.0 = normal height
+         *
+         * 0.985 = slightly shorter
+         */
+        const scaleY =
+            1 - (wave * idleSquash);
+
+        applyTransform(scaleY);
+
+    } else {
+
+        /*
+         * The moment the player moves,
+         * jumps, crouches, etc., return to
+         * the exact normal image height.
+         */
+        idleTime = 0;
+
+        applyTransform(1);
+    }
+}
+
+
+/*
+ * Handles BOTH:
+ *
+ * - Left/right flipping
+ * - Idle vertical squash
+ *
+ * This prevents the idle animation from
+ * breaking your existing turning system.
+ */
+function applyTransform(scaleY = 1) {
+
+    let scaleX = 1;
+
+    if (currentDirection === "left") {
+        scaleX = -1;
     }
 
-    function updateIdleAnimation() {
+    character.style.transform =
+        `scale(${scaleX}, ${scaleY})`;
+}
 
-        if (noButtonsPressed() && isOnGround && !isCrouching) {
 
-            idleTime += idleSpeed;
+/* =========================================================
+   DIRECTION SYSTEM
+   ========================================================= */
 
-            /*
-                Goes smoothly between:
+function applyDirection(direction) {
 
-                Normal:
-                scaleY(1)
+    if (isCrouching) {
 
-                Squashed:
-                scaleY(~0.99)
-
-                Because transform-origin is bottom center,
-                the bottom stays in exactly the same place.
-            */
-
-            const amount = (Math.sin(idleTime) + 1) / 2;
-
-            const scaleY =
-                1 - (amount * 0.01);
-
-            character.style.transform =
-                `scaleY(${scaleY})`;
-
-        } else {
-
-            idleTime = 0;
-
-            // Return to completely normal size.
-            character.style.transform = "scaleY(1)";
-        }
-    }
-
-    // -------------------------
-    // DIRECTION
-    // -------------------------
-
-    function applyDirection(direction) {
-
-        if (isCrouching) {
-            character.src = images.crouch;
-            character.style.transform = "scaleX(1)";
-            return;
-        }
+        character.src = images.crouch;
 
         currentDirection = direction;
 
-        if (direction === "left") {
+        /*
+         * Crouching always faces normally.
+         */
+        character.style.transform =
+            "scale(1, 1)";
 
-            character.src = images.right;
-
-            character.style.transform =
-                "scaleX(-1)";
-
-        } else if (direction === "right") {
-
-            character.src = images.right;
-
-            character.style.transform =
-                "scaleX(1)";
-
-        } else {
-
-            character.src = images.forward;
-
-            character.style.transform =
-                "scaleX(1)";
-        }
+        return;
     }
 
-    function setDirection(direction) {
+    currentDirection = direction;
 
-        if (isTurning || isCrouching) return;
+    if (direction === "left") {
 
-        const isSwitchingSide =
-            (currentDirection === "left" && direction === "right") ||
-            (currentDirection === "right" && direction === "left");
+        character.src = images.right;
 
-        if (isSwitchingSide) {
+        applyTransform(1);
 
-            isTurning = true;
+    } else if (direction === "right") {
 
-            character.src = images.forward;
-            character.style.transform = "scaleX(1)";
+        character.src = images.right;
 
-            setTimeout(() => {
+        applyTransform(1);
 
-                applyDirection(direction);
+    } else {
 
-                isTurning = false;
+        character.src = images.forward;
 
-            }, 16);
+        applyTransform(1);
+    }
+}
 
-        } else {
+
+function setDirection(direction) {
+
+    if (isTurning || isCrouching) return;
+
+    const isSwitchingSide =
+        (currentDirection === "left" && direction === "right") ||
+        (currentDirection === "right" && direction === "left");
+
+    if (isSwitchingSide) {
+
+        isTurning = true;
+
+        character.src = images.forward;
+
+        character.style.transform =
+            "scale(1, 1)";
+
+        setTimeout(() => {
 
             applyDirection(direction);
+
+            isTurning = false;
+
+        }, 16);
+
+    } else {
+
+        applyDirection(direction);
+    }
+}
+
+
+/* =========================================================
+   MAIN UPDATE LOOP
+   ========================================================= */
+
+function update() {
+
+    /*
+     * MOVEMENT
+     */
+
+    if (!isCrouching) {
+
+        if (keys.a) {
+
+            x -= speed;
+
+            setDirection("left");
+        }
+
+        if (keys.d) {
+
+            x += speed;
+
+            setDirection("right");
         }
     }
 
-    // -------------------------
-    // GAME LOOP
-    // -------------------------
 
-    function update() {
+    /*
+     * GRAVITY
+     */
 
-        if (!isCrouching) {
+    velocityY += gravity;
 
-            if (keys.a) {
-                x -= speed;
-                setDirection("left");
-            }
+    y += velocityY;
 
-            if (keys.d) {
-                x += speed;
-                setDirection("right");
-            }
-        }
 
-        // Gravity
-        velocityY += gravity;
-        y += velocityY;
+    /*
+     * GROUND
+     */
 
-        if (y >= groundY) {
+    if (y >= groundY) {
 
-            y = groundY;
-            velocityY = 0;
-            isOnGround = true;
+        y = groundY;
 
-        } else {
+        velocityY = 0;
 
-            isOnGround = false;
-        }
+        isOnGround = true;
 
-        // Position the wrapper.
-        // The wrapper itself never moves during idle animation.
-        container.style.left = x + "px";
-        container.style.top = y + "px";
+    } else {
 
-        // Animate only the image.
-        updateIdleAnimation();
-
-        requestAnimationFrame(update);
+        isOnGround = false;
     }
 
-    // -------------------------
-    // KEY DOWN
-    // -------------------------
 
-    document.addEventListener("keydown", (e) => {
+    /*
+     * POSITION
+     *
+     * The Y position NEVER changes because
+     * of the idle animation.
+     */
+    character.style.left = x + "px";
 
-        const key = e.key.toLowerCase();
+    character.style.top = y + "px";
 
-        if (key === "a") keys.a = true;
-        if (key === "d") keys.d = true;
-        if (key === "s") keys.s = true;
-        if (key === "w") keys.w = true;
 
-        if (e.code === "Space") {
-            keys.space = true;
-        }
+    /*
+     * IDLE HEIGHT
+     */
 
-        // Crouch
-        if (key === "s" && !crouchTimer && !isCrouching) {
+    updateIdleAnimation();
 
-            crouchTimer = setTimeout(() => {
 
-                isCrouching = true;
+    requestAnimationFrame(update);
+}
 
-                keys.a = false;
-                keys.d = false;
 
-                character.src = images.crouch;
+/* =========================================================
+   KEY DOWN
+   ========================================================= */
 
-                character.style.transform =
-                    "scaleX(1)";
+document.addEventListener("keydown", (e) => {
 
-                idleTime = 0;
+    const key = e.key.toLowerCase();
 
-                crouchTimer = null;
 
-            }, 150);
-        }
+    /*
+     * A / D
+     */
 
-        // W jump
-        if (key === "w" && isOnGround && !isCrouching) {
+    if (key === "a") {
 
-            velocityY = jumpPower;
-            isOnGround = false;
+        keys.a = true;
+    }
+
+    if (key === "d") {
+
+        keys.d = true;
+    }
+
+
+    /*
+     * S / CROUCH
+     */
+
+    if (
+        key === "s" &&
+        !crouchTimer &&
+        !isCrouching
+    ) {
+
+        crouchTimer = setTimeout(() => {
+
+            isCrouching = true;
+
+            keys.a = false;
+            keys.d = false;
+
+            character.src = images.crouch;
+
+            character.style.transform =
+                "scale(1, 1)";
 
             idleTime = 0;
 
-            character.style.transform =
-                "scaleX(1)";
+            crouchTimer = null;
+
+        }, 150);
+    }
+
+
+    /*
+     * W / JUMP
+     */
+
+    if (
+        key === "w" &&
+        isOnGround &&
+        !isCrouching
+    ) {
+
+        velocityY = jumpPower;
+
+        isOnGround = false;
+
+        idleTime = 0;
+    }
+
+
+    /*
+     * SPACE / JUMP
+     */
+
+    if (
+        e.code === "Space" &&
+        isOnGround &&
+        !isCrouching
+    ) {
+
+        velocityY = jumpPower;
+
+        isOnGround = false;
+
+        idleTime = 0;
+    }
+
+
+    /*
+     * Space is also tracked so the idle
+     * animation knows a button is being held.
+     */
+
+    if (e.code === "Space") {
+
+        keys.space = true;
+    }
+});
+
+
+/* =========================================================
+   KEY UP
+   ========================================================= */
+
+document.addEventListener("keyup", (e) => {
+
+    const key = e.key.toLowerCase();
+
+
+    /*
+     * A / D
+     */
+
+    if (key === "a") {
+
+        keys.a = false;
+    }
+
+    if (key === "d") {
+
+        keys.d = false;
+    }
+
+
+    /*
+     * W
+     */
+
+    if (key === "w") {
+
+        keys.w = false;
+    }
+
+
+    /*
+     * SPACE
+     */
+
+    if (e.code === "Space") {
+
+        keys.space = false;
+    }
+
+
+    /*
+     * S / CROUCH
+     */
+
+    if (key === "s") {
+
+        keys.s = false;
+
+        if (crouchTimer) {
+
+            clearTimeout(crouchTimer);
+
+            crouchTimer = null;
         }
 
-        // Space jump
-        if (e.code === "Space" && isOnGround && !isCrouching) {
 
-            velocityY = jumpPower;
-            isOnGround = false;
+        if (isCrouching) {
+
+            isCrouching = false;
+
+            applyDirection(currentDirection);
 
             idleTime = 0;
-
-            character.style.transform =
-                "scaleX(1)";
         }
-    });
+    }
+});
 
-    // -------------------------
-    // KEY UP
-    // -------------------------
 
-    document.addEventListener("keyup", (e) => {
+/* =========================================================
+   START
+   ========================================================= */
 
-        const key = e.key.toLowerCase();
+update();
 
-        if (key === "a") keys.a = false;
-        if (key === "d") keys.d = false;
-        if (key === "s") keys.s = false;
-        if (key === "w") keys.w = false;
-
-        if (e.code === "Space") {
-            keys.space = false;
-        }
-
-        // Stop crouching
-        if (key === "s") {
-
-            if (crouchTimer) {
-
-                clearTimeout(crouchTimer);
-                crouchTimer = null;
-            }
-
-            if (isCrouching) {
-
-                isCrouching = false;
-
-                applyDirection(currentDirection);
-
-                idleTime = 0;
-            }
-        }
-    });
-
-    update();
 </script>
 
 </body>
