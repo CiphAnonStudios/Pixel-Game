@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Testing</title>
+
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            position: relative;
+            background: #111;
+            overflow: hidden;
+        }
+
+        #character {
+            width: 300px;
+            height: auto;
+            image-rendering: pixelated;
+            user-select: none;
+            -webkit-user-drag: none;
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+<img id="character" src="ToonyTimeForward.png" alt="Character"/>
+
+<script>
+    const character = document.getElementById("character");
+
+    const images = {
+        forward: "ToonyTimeForward.png",
+        crouch: "ToonyTimeCrouch.png",
+        right: "ToonyTimeTurn1.png"
+    };
+
+    let currentDirection = "forward";
+    let isTurning = false;
+    let isCrouching = false;
+    let crouchTimer = null;
+
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight - 300;
+    let velocityY = 0;
+
+    const speed = 4;
+    const gravity = 0.8;
+    const jumpPower = -16;
+    const groundY = window.innerHeight - 300;
+
+    const keys = {
+        a: false,
+        d: false,
+        s: false,
+        w: false,
+        space: false
+    };
+
+    let isOnGround = true;
+
+    // -------------------------
+    // BOBBING SETTINGS
+    // -------------------------
+
+    let bobTime = 0;
+
+    const bobAmount = 8;       // How many pixels up/down
+    const bobSpeed = 0.08;     // How fast the bobbing happens
+
+    function noButtonsPressed() {
+        return (
+            !keys.a &&
+            !keys.d &&
+            !keys.s &&
+            !keys.w &&
+            !keys.space
+        );
+    }
+
+    function applyDirection(direction) {
+        if (isCrouching) {
+            character.src = images.crouch;
+            character.style.transform = "scaleX(1)";
+            return;
+        }
+
+        currentDirection = direction;
+
+        if (direction === "left") {
+            character.src = images.right;
+            character.style.transform = "scaleX(-1)";
+        } else if (direction === "right") {
+            character.src = images.right;
+            character.style.transform = "scaleX(1)";
+        } else {
+            character.src = images.forward;
+            character.style.transform = "scaleX(1)";
+        }
+    }
+
+    function setDirection(direction) {
+        if (isTurning || isCrouching) return;
+
+        const isSwitchingSide =
+            (currentDirection === "left" && direction === "right") ||
+            (currentDirection === "right" && direction === "left");
+
+        if (isSwitchingSide) {
+            isTurning = true;
+
+            character.src = images.forward;
+            character.style.transform = "scaleX(1)";
+
+            setTimeout(() => {
+                applyDirection(direction);
+                isTurning = false;
+            }, 16);
+        } else {
+            applyDirection(direction);
+        }
+    }
+
+    function update() {
+
+        // -------------------------
+        // MOVEMENT
+        // -------------------------
+
+        if (!isCrouching) {
+            if (keys.a) {
+                x -= speed;
+                setDirection("left");
+            }
+
+            if (keys.d) {
+                x += speed;
+                setDirection("right");
+            }
+        }
+
+        // -------------------------
+        // GRAVITY / JUMPING
+        // -------------------------
+
+        velocityY += gravity;
+        y += velocityY;
+
+        if (y >= groundY) {
+            y = groundY;
+            velocityY = 0;
+            isOnGround = true;
+        } else {
+            isOnGround = false;
+        }
+
+        // -------------------------
+        // IDLE BOBBING
+        // -------------------------
+
+        if (
+            noButtonsPressed() &&
+            isOnGround &&
+            !isCrouching
+        ) {
+            bobTime += bobSpeed;
+
+            // Smooth up/down movement.
+            const bobOffset = Math.sin(bobTime) * bobAmount;
+
+            character.style.top = (y + bobOffset) + "px";
+        } else {
+            // Stop bobbing immediately and return
+            // to the character's normal height.
+            bobTime = 0;
+            character.style.top = y + "px";
+        }
+
+        // -------------------------
+        // HORIZONTAL POSITION
+        // -------------------------
+
+        character.style.left = x + "px";
+
+        requestAnimationFrame(update);
+    }
+
+    // -------------------------
+    // KEY DOWN
+    // -------------------------
+
+    document.addEventListener("keydown", (e) => {
+        const key = e.key.toLowerCase();
+
+        if (key === "a") keys.a = true;
+        if (key === "d") keys.d = true;
+        if (key === "s") keys.s = true;
+        if (key === "w") keys.w = true;
+
+        if (e.code === "Space") {
+            keys.space = true;
+        }
+
+        // Crouch
+        if (key === "s" && !crouchTimer && !isCrouching) {
+            crouchTimer = setTimeout(() => {
+                isCrouching = true;
+
+                keys.a = false;
+                keys.d = false;
+
+                character.src = images.crouch;
+                character.style.transform = "scaleX(1)";
+
+                // Immediately return to normal height.
+                bobTime = 0;
+                character.style.top = y + "px";
+
+                crouchTimer = null;
+            }, 150);
+        }
+
+        // W jump
+        if (key === "w" && isOnGround && !isCrouching) {
+            velocityY = jumpPower;
+            isOnGround = false;
+
+            bobTime = 0;
+        }
+
+        // Space jump
+        if (e.code === "Space" && isOnGround && !isCrouching) {
+            velocityY = jumpPower;
+            isOnGround = false;
+
+            bobTime = 0;
+        }
+    });
+
+    // -------------------------
+    // KEY UP
+    // -------------------------
+
+    document.addEventListener("keyup", (e) => {
+        const key = e.key.toLowerCase();
+
+        if (key === "a") keys.a = false;
+        if (key === "d") keys.d = false;
+        if (key === "s") keys.s = false;
+        if (key === "w") keys.w = false;
+
+        if (e.code === "Space") {
+            keys.space = false;
+        }
+
+        // Stop crouching
+        if (key === "s") {
+            if (crouchTimer) {
+                clearTimeout(crouchTimer);
+                crouchTimer = null;
+            }
+
+            if (isCrouching) {
+                isCrouching = false;
+                applyDirection(currentDirection);
+
+                // Return to normal height.
+                bobTime = 0;
+                character.style.top = y + "px";
+            }
+        }
+    });
+
+    update();
+</script>
+
+</body>
+</html>
