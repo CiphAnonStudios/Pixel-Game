@@ -16,7 +16,7 @@
 
         #character {
             width: 300px;
-            height: auto;
+            height: 50px;
             image-rendering: pixelated;
             user-select: none;
             -webkit-user-drag: none;
@@ -65,13 +65,13 @@
     let isOnGround = true;
 
     // -------------------------
-    // BOBBING SETTINGS
+    // IDLE HEIGHT ANIMATION
     // -------------------------
 
-    let bobTime = 0;
+    const normalHeight = 50;
+    const idleMinHeight = 48;
 
-    const bobAmount = 8;       // How many pixels up/down
-    const bobSpeed = 0.08;     // How fast the bobbing happens
+    let idleTime = 0;
 
     function noButtonsPressed() {
         return (
@@ -83,7 +83,32 @@
         );
     }
 
+    function updateIdleHeight() {
+
+        if (noButtonsPressed() && isOnGround && !isCrouching) {
+
+            idleTime += 0.08;
+
+            // Smoothly goes:
+            // 50px -> 48px -> 50px -> 48px...
+            const amount = (Math.sin(idleTime) + 1) / 2;
+
+            const newHeight =
+                normalHeight - (amount * (normalHeight - idleMinHeight));
+
+            character.style.height = newHeight + "px";
+
+        } else {
+
+            // Anything being pressed:
+            // immediately return to normal height.
+            idleTime = 0;
+            character.style.height = normalHeight + "px";
+        }
+    }
+
     function applyDirection(direction) {
+
         if (isCrouching) {
             character.src = images.crouch;
             character.style.transform = "scaleX(1)";
@@ -95,16 +120,19 @@
         if (direction === "left") {
             character.src = images.right;
             character.style.transform = "scaleX(-1)";
-        } else if (direction === "right") {
+        } 
+        else if (direction === "right") {
             character.src = images.right;
             character.style.transform = "scaleX(1)";
-        } else {
+        } 
+        else {
             character.src = images.forward;
             character.style.transform = "scaleX(1)";
         }
     }
 
     function setDirection(direction) {
+
         if (isTurning || isCrouching) return;
 
         const isSwitchingSide =
@@ -112,6 +140,7 @@
             (currentDirection === "right" && direction === "left");
 
         if (isSwitchingSide) {
+
             isTurning = true;
 
             character.src = images.forward;
@@ -121,6 +150,7 @@
                 applyDirection(direction);
                 isTurning = false;
             }, 16);
+
         } else {
             applyDirection(direction);
         }
@@ -133,6 +163,7 @@
         // -------------------------
 
         if (!isCrouching) {
+
             if (keys.a) {
                 x -= speed;
                 setDirection("left");
@@ -145,7 +176,7 @@
         }
 
         // -------------------------
-        // GRAVITY / JUMPING
+        // GRAVITY
         // -------------------------
 
         velocityY += gravity;
@@ -160,32 +191,17 @@
         }
 
         // -------------------------
-        // IDLE BOBBING
+        // IDLE IMAGE HEIGHT
         // -------------------------
 
-        if (
-            noButtonsPressed() &&
-            isOnGround &&
-            !isCrouching
-        ) {
-            bobTime += bobSpeed;
-
-            // Smooth up/down movement.
-            const bobOffset = Math.sin(bobTime) * bobAmount;
-
-            character.style.top = (y + bobOffset) + "px";
-        } else {
-            // Stop bobbing immediately and return
-            // to the character's normal height.
-            bobTime = 0;
-            character.style.top = y + "px";
-        }
+        updateIdleHeight();
 
         // -------------------------
-        // HORIZONTAL POSITION
+        // POSITION
         // -------------------------
 
         character.style.left = x + "px";
+        character.style.top = y + "px";
 
         requestAnimationFrame(update);
     }
@@ -195,6 +211,7 @@
     // -------------------------
 
     document.addEventListener("keydown", (e) => {
+
         const key = e.key.toLowerCase();
 
         if (key === "a") keys.a = true;
@@ -208,7 +225,9 @@
 
         // Crouch
         if (key === "s" && !crouchTimer && !isCrouching) {
+
             crouchTimer = setTimeout(() => {
+
                 isCrouching = true;
 
                 keys.a = false;
@@ -217,28 +236,29 @@
                 character.src = images.crouch;
                 character.style.transform = "scaleX(1)";
 
-                // Immediately return to normal height.
-                bobTime = 0;
-                character.style.top = y + "px";
+                character.style.height = normalHeight + "px";
 
                 crouchTimer = null;
+
             }, 150);
         }
 
         // W jump
         if (key === "w" && isOnGround && !isCrouching) {
+
             velocityY = jumpPower;
             isOnGround = false;
 
-            bobTime = 0;
+            character.style.height = normalHeight + "px";
         }
 
         // Space jump
         if (e.code === "Space" && isOnGround && !isCrouching) {
+
             velocityY = jumpPower;
             isOnGround = false;
 
-            bobTime = 0;
+            character.style.height = normalHeight + "px";
         }
     });
 
@@ -247,6 +267,7 @@
     // -------------------------
 
     document.addEventListener("keyup", (e) => {
+
         const key = e.key.toLowerCase();
 
         if (key === "a") keys.a = false;
@@ -260,18 +281,19 @@
 
         // Stop crouching
         if (key === "s") {
+
             if (crouchTimer) {
                 clearTimeout(crouchTimer);
                 crouchTimer = null;
             }
 
             if (isCrouching) {
+
                 isCrouching = false;
+
                 applyDirection(currentDirection);
 
-                // Return to normal height.
-                bobTime = 0;
-                character.style.top = y + "px";
+                character.style.height = normalHeight + "px";
             }
         }
     });
