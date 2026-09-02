@@ -14,25 +14,39 @@
             overflow: hidden;
         }
 
-        #character {
-            width: 300px;
-            height: 50px;
-            image-rendering: pixelated;
-            user-select: none;
-            -webkit-user-drag: none;
+        /* The wrapper is what stays in the same position */
+        #character-container {
             position: absolute;
             left: 0;
             top: 0;
+            width: 300px;
+            height: auto;
+            overflow: visible;
+        }
+
+        #character {
+            display: block;
+            width: 300px;
+            height: auto;
+            image-rendering: pixelated;
+            user-select: none;
+            -webkit-user-drag: none;
+
+            /* Keeps the bottom of the image anchored */
+            transform-origin: bottom center;
         }
     </style>
 </head>
 
 <body>
 
-<img id="character" src="ToonyTimeForward.png" alt="Character"/>
+<div id="character-container">
+    <img id="character" src="ToonyTimeForward.png" alt="Character"/>
+</div>
 
 <script>
     const character = document.getElementById("character");
+    const container = document.getElementById("character-container");
 
     const images = {
         forward: "ToonyTimeForward.png",
@@ -65,13 +79,16 @@
     let isOnGround = true;
 
     // -------------------------
-    // IDLE HEIGHT ANIMATION
+    // IDLE BOB / SQUASH
     // -------------------------
 
-    const normalHeight = 50;
-    const idleMinHeight = 48;
-
     let idleTime = 0;
+
+    // 2px is the maximum amount the TOP moves down.
+    // The bottom does not move.
+    const idleAmount = 2;
+
+    const idleSpeed = 0.08;
 
     function noButtonsPressed() {
         return (
@@ -83,29 +100,45 @@
         );
     }
 
-    function updateIdleHeight() {
+    function updateIdleAnimation() {
 
         if (noButtonsPressed() && isOnGround && !isCrouching) {
 
-            idleTime += 0.08;
+            idleTime += idleSpeed;
 
-            // Smoothly goes:
-            // 50px -> 48px -> 50px -> 48px...
+            /*
+                Goes smoothly between:
+
+                Normal:
+                scaleY(1)
+
+                Squashed:
+                scaleY(~0.99)
+
+                Because transform-origin is bottom center,
+                the bottom stays in exactly the same place.
+            */
+
             const amount = (Math.sin(idleTime) + 1) / 2;
 
-            const newHeight =
-                normalHeight - (amount * (normalHeight - idleMinHeight));
+            const scaleY =
+                1 - (amount * 0.01);
 
-            character.style.height = newHeight + "px";
+            character.style.transform =
+                `scaleY(${scaleY})`;
 
         } else {
 
-            // Anything being pressed:
-            // immediately return to normal height.
             idleTime = 0;
-            character.style.height = normalHeight + "px";
+
+            // Return to completely normal size.
+            character.style.transform = "scaleY(1)";
         }
     }
+
+    // -------------------------
+    // DIRECTION
+    // -------------------------
 
     function applyDirection(direction) {
 
@@ -118,16 +151,25 @@
         currentDirection = direction;
 
         if (direction === "left") {
+
             character.src = images.right;
-            character.style.transform = "scaleX(-1)";
-        } 
-        else if (direction === "right") {
+
+            character.style.transform =
+                "scaleX(-1)";
+
+        } else if (direction === "right") {
+
             character.src = images.right;
-            character.style.transform = "scaleX(1)";
-        } 
-        else {
+
+            character.style.transform =
+                "scaleX(1)";
+
+        } else {
+
             character.src = images.forward;
-            character.style.transform = "scaleX(1)";
+
+            character.style.transform =
+                "scaleX(1)";
         }
     }
 
@@ -147,20 +189,24 @@
             character.style.transform = "scaleX(1)";
 
             setTimeout(() => {
+
                 applyDirection(direction);
+
                 isTurning = false;
+
             }, 16);
 
         } else {
+
             applyDirection(direction);
         }
     }
 
-    function update() {
+    // -------------------------
+    // GAME LOOP
+    // -------------------------
 
-        // -------------------------
-        // MOVEMENT
-        // -------------------------
+    function update() {
 
         if (!isCrouching) {
 
@@ -175,33 +221,28 @@
             }
         }
 
-        // -------------------------
-        // GRAVITY
-        // -------------------------
-
+        // Gravity
         velocityY += gravity;
         y += velocityY;
 
         if (y >= groundY) {
+
             y = groundY;
             velocityY = 0;
             isOnGround = true;
+
         } else {
+
             isOnGround = false;
         }
 
-        // -------------------------
-        // IDLE IMAGE HEIGHT
-        // -------------------------
+        // Position the wrapper.
+        // The wrapper itself never moves during idle animation.
+        container.style.left = x + "px";
+        container.style.top = y + "px";
 
-        updateIdleHeight();
-
-        // -------------------------
-        // POSITION
-        // -------------------------
-
-        character.style.left = x + "px";
-        character.style.top = y + "px";
+        // Animate only the image.
+        updateIdleAnimation();
 
         requestAnimationFrame(update);
     }
@@ -234,9 +275,11 @@
                 keys.d = false;
 
                 character.src = images.crouch;
-                character.style.transform = "scaleX(1)";
 
-                character.style.height = normalHeight + "px";
+                character.style.transform =
+                    "scaleX(1)";
+
+                idleTime = 0;
 
                 crouchTimer = null;
 
@@ -249,7 +292,10 @@
             velocityY = jumpPower;
             isOnGround = false;
 
-            character.style.height = normalHeight + "px";
+            idleTime = 0;
+
+            character.style.transform =
+                "scaleX(1)";
         }
 
         // Space jump
@@ -258,7 +304,10 @@
             velocityY = jumpPower;
             isOnGround = false;
 
-            character.style.height = normalHeight + "px";
+            idleTime = 0;
+
+            character.style.transform =
+                "scaleX(1)";
         }
     });
 
@@ -283,6 +332,7 @@
         if (key === "s") {
 
             if (crouchTimer) {
+
                 clearTimeout(crouchTimer);
                 crouchTimer = null;
             }
@@ -293,7 +343,7 @@
 
                 applyDirection(currentDirection);
 
-                character.style.height = normalHeight + "px";
+                idleTime = 0;
             }
         }
     });
