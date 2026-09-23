@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Testing</title>
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        height: 100vh;
+        position: relative;
+        background: #111;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+    }
+
+    #character {
+        width: 300px;
+        height: auto;
+        image-rendering: pixelated;
+        user-select: none;
+        -webkit-user-drag: none;
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: bottom center;
+        z-index: 5;
+    }
+
+    .block {
+        position: absolute;
+        width: 170px;
+        height: 45px;
+        border: 3px solid white;
+        border-radius: 8px;
+        bottom: 30px;
+        z-index: 2;
+        text-align: center;
+        color: white;
+        font-weight: bold;
+        line-height: 39px;
+        user-select: none;
+    }
+
+    #uiBlock {
+        left: 8%;
+        background: #1769ff;
+        box-shadow: 0 0 18px #1769ff;
+    }
+
+    #bounceBlock {
+        left: 30%;
+        background: #16a34a;
+        box-shadow: 0 0 18px #16a34a;
+    }
+
+    #launchBlock {
+        left: 52%;
+        background: #dc2626;
+        box-shadow: 0 0 18px #dc2626;
+    }
+
+    #slowBlock {
+        left: 74%;
+        background: #9333ea;
+        box-shadow: 0 0 18px #9333ea;
+    }
+
+    #openUiButton {
+        display: none;
+        position: fixed;
+        left: 50%;
+        bottom: 110px;
+        transform: translateX(-50%);
+        padding: 14px 24px;
+        border: 3px solid white;
+        border-radius: 8px;
+        background: #1769ff;
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 20;
+    }
+
+    #openUiButton:hover {
+        background: #3980ff;
+    }
+
+    #uiPanel {
+        display: none;
+        position: fixed;
+        inset: 0;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.75);
+        z-index: 15;
+    }
+
+    #uiBox {
+        position: relative;
+        width: min(800px, 85vw);
+        min-height: 280px;
+        padding: 50px 30px 30px;
+        border: 4px solid #1769ff;
+        border-radius: 14px;
+        background: #202020;
+        color: white;
+        text-align: center;
+        box-shadow: 0 0 30px #1769ff;
+    }
+
+    #uiBox h1 {
+        margin-top: 0;
+        color: #66a3ff;
+    }
+
+    #closeUiButton {
+        position: absolute;
+        top: 10px;
+        right: 14px;
+        border: none;
+        background: transparent;
+        color: white;
+        font-size: 30px;
+        cursor: pointer;
+    }
+
+    #closeUiButton:hover {
+        color: #ff5555;
+    }
+
+    #status {
+        position: fixed;
+        top: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 10px 16px;
+        border: 2px solid white;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        font-weight: bold;
+        z-index: 10;
+    }
+</style>
+
+</head>
+<body>
+<div id="status">Use A/D to move, W or Space to jump, S to crouch</div>
+
+<img id="character" src="ToonyTimeForward.png" alt="Character"/>
+
+<div id="uiBlock" class="block">UI BLOCK</div>
+<div id="bounceBlock" class="block">BOUNCE BLOCK</div>
+<div id="launchBlock" class="block">LAUNCH BLOCK</div>
+<div id="slowBlock" class="block">SLOW BLOCK</div>
+
+<button id="openUiButton">Open UI</button>
+
+<div id="uiPanel">
+    <div id="uiBox">
+        <button id="closeUiButton">×</button>
+        <h1>Game UI Panel</h1>
+        <p>You opened this panel by standing on the blue UI block.</p>
+        <p>Press the X button to close it.</p>
+    </div>
+</div>
+
+<script>
+const character = document.getElementById("character");
+
+const uiBlock = document.getElementById("uiBlock");
+const bounceBlock = document.getElementById("bounceBlock");
+const launchBlock = document.getElementById("launchBlock");
+const slowBlock = document.getElementById("slowBlock");
+
+const openUiButton = document.getElementById("openUiButton");
+const closeUiButton = document.getElementById("closeUiButton");
+const uiPanel = document.getElementById("uiPanel");
+const statusText = document.getElementById("status");
+
+const images = {
+    forward: "ToonyTimeForward.png",
+    crouch: "ToonyTimeCrouch.png",
+    right: "ToonyTimeTurn1.png"
+};
+
+let currentDirection = "forward";
+let isTurning = false;
+let isCrouching = false;
+let crouchTimer = null;
+
+let x = window.innerWidth / 2;
+let y = window.innerHeight - 330;
+let velocityY = 0;
+
+const normalSpeed = 4;
+const slowSpeed = 1.5;
+const gravity = 0.8;
+const jumpPower = -16;
+const bouncePower = -25;
+const launchPower = -35;
+
+let groundY = window.innerHeight - 330;
+
+const keys = {
+    a: false,
+    d: false,
+    s: false,
+    w: false,
+    space: false
+};
+
+let isOnGround = true;
+let wasOnGround = true;
+let currentBlock = null;
+
+
+/* =========================================================
+   IDLE ANIMATION
+   ========================================================= */
+
+let idleTime = 0;
+const idleSquash = 0.03;
+const idleSpeed = 0.07;
+
+function noButtonsPressed() {
+    return (
+        !keys.a &&
+        !keys.d &&
+        !keys.s &&
+        !keys.w &&
+        !keys.space
+    );
+}
+
+function updateIdleAnimation() {
+    if (
+        noButtonsPressed() &&
+        isOnGround &&
+        !isCrouching
+    ) {
+        idleTime += idleSpeed;
+
+        const wave = (Math.sin(idleTime) + 1) / 2;
+        const scaleY = 1 - (wave * idleSquash);
+
+        applyTransform(scaleY);
+    } else {
+        idleTime = 0;
+        applyTransform(1);
+    }
+}
+
+function applyTransform(scaleY = 1) {
+    const scaleX = currentDirection === "left" ? -1 : 1;
+
+    character.style.transform =
+        `scale(${scaleX}, ${scaleY})`;
+}
+
+
+/* =========================================================
+   DIRECTION SYSTEM
+   ========================================================= */
+
+function applyDirection(direction) {
+    if (isCrouching) {
+        character.src = images.crouch;
+        currentDirection = direction;
+        character.style.transform = "scale(1, 1)";
+        return;
+    }
+
+    currentDirection = direction;
+
+    if (direction === "left") {
+        character.src = images.right;
+        applyTransform(1);
+    } else if (direction === "right") {
+        character.src = images.right;
+        applyTransform(1);
+    } else {
+        character.src = images.forward;
+        applyTransform(1);
+    }
+}
+
+function setDirection(direction) {
+    if (isTurning || isCrouching) return;
+
+    const isSwitchingSide =
+        (currentDirection === "left" && direction === "right") ||
+        (currentDirection === "right" && direction === "left");
+
+    if (isSwitchingSide) {
+        isTurning = true;
+
+        character.src = images.forward;
+        character.style.transform = "scale(1, 1)";
+
+        setTimeout(() => {
+            applyDirection(direction);
+            isTurning = false;
+        }, 16);
+    } else {
+        applyDirection(direction);
+    }
+}
+
+
+/* =========================================================
+   COLLISION HELPERS
+   ========================================================= */
+
+function getCharacterBox() {
+    return {
+        left: x,
+        right: x + character.offsetWidth,
+        top: y,
+        bottom: y + character.offsetHeight
+    };
+}
+
+function getBlockBox(block) {
+    const rect = block.getBoundingClientRect();
+
+    return {
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom
+    };
+}
+
+function isOverlapping(block) {
+    const player = getCharacterBox();
+    const platform = getBlockBox(block);
+
+    return (
+        player.right > platform.left &&
+        player.left < platform.right &&
+        player.bottom >= platform.top &&
+        player.bottom <= platform.bottom + 25
+    );
+}
+
+function isInsideBlock(block) {
+    const player = getCharacterBox();
+    const platform = getBlockBox(block);
+
+    return (
+        player.right > platform.left &&
+        player.left < platform.right &&
+        player.bottom >= platform.top &&
+        player.top < platform.bottom
+    );
+}
+
+function updateCurrentBlock() {
+    currentBlock = null;
+
+    if (isOverlapping(uiBlock)) {
+        currentBlock = "ui";
+    } else if (isOverlapping(bounceBlock)) {
+        currentBlock = "bounce";
+    } else if (isOverlapping(launchBlock)) {
+        currentBlock = "launch";
+    } else if (isInsideBlock(slowBlock)) {
+        currentBlock = "slow";
+    }
+
+    updateBlockEffects();
+}
+
+function updateBlockEffects() {
+    if (currentBlock === "ui") {
+        openUiButton.style.display = "block";
+        statusText.textContent = "You are on the blue UI block.";
+    } else {
+        openUiButton.style.display = "none";
+    }
+
+    if (currentBlock === "bounce") {
+        statusText.textContent = "Green block: jump on it to bounce!";
+    }
+
+    if (currentBlock === "launch") {
+        statusText.textContent = "Red block: jump on it to launch!";
+    }
+
+    if (currentBlock === "slow") {
+        statusText.textContent = "Purple block: movement is slowed.";
+    }
+
+    if (!currentBlock) {
+        statusText.textContent =
+            "Use A/D to move, W or Space to jump, S to crouch";
+    }
+}
+
+
+/* =========================================================
+   BLOCK EFFECTS
+   ========================================================= */
+
+function handleBlockLanding() {
+    if (wasOnGround || velocityY < 0) return;
+
+    if (isOverlapping(bounceBlock)) {
+        velocityY = bouncePower;
+        isOnGround = false;
+        statusText.textContent = "BOING!";
+    }
+
+    if (isOverlapping(launchBlock)) {
+        velocityY = launchPower;
+        isOnGround = false;
+        statusText.textContent = "LAUNCHED!";
+    }
+}
+
+
+/* =========================================================
+   MAIN UPDATE LOOP
+   ========================================================= */
+
+function update() {
+    wasOnGround = isOnGround;
+
+    const playerIsSlow = isInsideBlock(slowBlock);
+    const speed = playerIsSlow ? slowSpeed : normalSpeed;
+
+    if (!isCrouching) {
+        if (keys.a) {
+            x -= speed;
+            setDirection("left");
+        }
+
+        if (keys.d) {
+            x += speed;
+            setDirection("right");
+        }
+    }
+
+    x = Math.max(0, Math.min(x, window.innerWidth - character.offsetWidth));
+
+    velocityY += gravity;
+    y += velocityY;
+
+    if (y >= groundY) {
+        y = groundY;
+        velocityY = 0;
+        isOnGround = true;
+    } else {
+        isOnGround = false;
+    }
+
+    character.style.left = x + "px";
+    character.style.top = y + "px";
+
+    handleBlockLanding();
+    updateCurrentBlock();
+    updateIdleAnimation();
+
+    requestAnimationFrame(update);
+}
+
+
+/* =========================================================
+   UI BUTTONS
+   ========================================================= */
+
+openUiButton.addEventListener("click", () => {
+    if (currentBlock === "ui") {
+        uiPanel.style.display = "flex";
+    }
+});
+
+closeUiButton.addEventListener("click", () => {
+    uiPanel.style.display = "none";
+});
+
+
+/* =========================================================
+   KEY DOWN
+   ========================================================= */
+
+document.addEventListener("keydown", (e) => {
+    const key = e.key.toLowerCase();
+
+    if (key === "a") {
+        keys.a = true;
+    }
+
+    if (key === "d") {
+        keys.d = true;
+    }
+
+    if (
+        key === "s" &&
+        !crouchTimer &&
+        !isCrouching
+    ) {
+        crouchTimer = setTimeout(() => {
+            isCrouching = true;
+
+            keys.a = false;
+            keys.d = false;
+
+            character.src = images.crouch;
+            character.style.transform = "scale(1, 1)";
+
+            idleTime = 0;
+            crouchTimer = null;
+        }, 150);
+    }
+
+    if (
+        key === "w" &&
+        isOnGround &&
+        !isCrouching
+    ) {
+        velocityY = jumpPower;
+        isOnGround = false;
+        idleTime = 0;
+    }
+
+    if (
+        e.code === "Space" &&
+        isOnGround &&
+        !isCrouching
+    ) {
+        e.preventDefault();
+
+        velocityY = jumpPower;
+        isOnGround = false;
+        idleTime = 0;
+    }
+
+    if (e.code === "Space") {
+        keys.space = true;
+    }
+});
+
+
+/* =========================================================
+   KEY UP
+   ========================================================= */
+
+document.addEventListener("keyup", (e) => {
+    const key = e.key.toLowerCase();
+
+    if (key === "a") {
+        keys.a = false;
+    }
+
+    if (key === "d") {
+        keys.d = false;
+    }
+
+    if (key === "w") {
+        keys.w = false;
+    }
+
+    if (e.code === "Space") {
+        keys.space = false;
+    }
+
+    if (key === "s") {
+        keys.s = false;
+
+        if (crouchTimer) {
+            clearTimeout(crouchTimer);
+            crouchTimer = null;
+        }
+
+        if (isCrouching) {
+            isCrouching = false;
+            applyDirection(currentDirection);
+            idleTime = 0;
+        }
+    }
+});
+
+
+/* =========================================================
+   WINDOW RESIZE
+   ========================================================= */
+
+window.addEventListener("resize", () => {
+    groundY = window.innerHeight - 330;
+
+    if (y > groundY) {
+        y = groundY;
+    }
+});
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
+update();
+</script>
+</body>
+</html>
