@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Testing</title>
+
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      position: relative;
+      background: #111;
+      overflow: hidden;
+    }
+
+    #character {
+      width: 300px;
+      height: auto;
+      position: absolute;
+      left: 0;
+      top: 0;
+
+      image-rendering: pixelated;
+      user-select: none;
+      -webkit-user-drag: none;
+
+      transform-origin: bottom center;
+    }
+  </style>
+</head>
+
+<body>
+  <img id="character" src="ToonyTimeForward.png" alt="Character" />
+
+  <script>
+    const character = document.getElementById("character");
+
+    const images = {
+      forward: "ToonyTimeForward.png",
+      crouch: "ToonyTimeCrouch.png",
+      turn: "ToonyTimeTurn1.png"
+    };
+
+    const keys = {
+      a: false,
+      d: false,
+      s: false,
+      w: false,
+      space: false
+    };
+
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight - 300;
+
+    let velocityY = 0;
+
+    let isOnGround = true;
+    let isCrouching = false;
+    let crouchTimer = null;
+
+    /*
+     * The character starts facing left.
+     * This value is used to stop A and D
+     * from fighting each other.
+     */
+    let currentDirection = "left";
+
+    const speed = 4;
+    const gravity = 0.8;
+    const jumpPower = -16;
+
+    let groundY = window.innerHeight - 300;
+
+    /*
+     * Idle animation settings
+     */
+    let idleTime = 0;
+
+    const idleSquash = 0.03;
+    const idleSpeed = 0.07;
+
+    /*
+     * Keeps the character inside the screen.
+     */
+    function keepCharacterInsideScreen() {
+      const characterWidth = character.offsetWidth;
+
+      const maxX = Math.max(0, window.innerWidth - characterWidth);
+
+      if (x < 0) {
+        x = 0;
+      }
+
+      if (x > maxX) {
+        x = maxX;
+      }
+    }
+
+    /*
+     * Checks whether the player is pressing no buttons.
+     */
+    function noButtonsPressed() {
+      return (
+        !keys.a &&
+        !keys.d &&
+        !keys.s &&
+        !keys.w &&
+        !keys.space
+      );
+    }
+
+    /*
+     * Applies the character's direction and idle scale.
+     */
+    function applyTransform(scaleY = 1) {
+      const scaleX = currentDirection === "left" ? -1 : 1;
+
+      character.style.transform =
+        `scale(${scaleX}, ${scaleY})`;
+    }
+
+    /*
+     * Changes the character image only when needed.
+     * This prevents unnecessary .png switching.
+     */
+    function applyDirection(direction) {
+      if (isCrouching) {
+        character.src = images.crouch;
+        applyTransform(1);
+        return;
+      }
+
+      if (direction === currentDirection) {
+        return;
+      }
+
+      currentDirection = direction;
+
+      character.src = images.turn;
+      applyTransform(1);
+
+      /*
+       * Change back to the normal image shortly after turning.
+       */
+      setTimeout(() => {
+        if (!isCrouching) {
+          character.src = images.forward;
+          applyTransform(1);
+        }
+      }, 100);
+    }
+
+    /*
+     * Gets the direction the player wants to move.
+
+     * Important:
+     * If A and D are both held, the current direction
+     * is kept instead of switching repeatedly.
+     */
+    function getMovementDirection() {
+      if (keys.a && keys.d) {
+        return currentDirection;
+      }
+
+      if (keys.a) {
+        return "left";
+      }
+
+      if (keys.d) {
+        return "right";
+      }
+
+      return null;
+    }
+
+    /*
+     * Idle breathing animation.
+     */
+    function updateIdleAnimation() {
+      if (
+        noButtonsPressed() &&
+        isOnGround &&
+        !isCrouching
+      ) {
+        idleTime += idleSpeed;
+
+        const wave =
+          (Math.sin(idleTime) + 1) / 2;
+
+        const scaleY =
+          1 - wave * idleSquash;
+
+        applyTransform(scaleY);
+      } else {
+        idleTime = 0;
+        applyTransform(1);
+      }
+    }
+
+    /*
+     * Updates the character's position.
+     */
+    function updatePosition() {
+      character.style.left = `${x}px`;
+      character.style.top = `${y}px`;
+    }
+
+    /*
+     * Main game loop.
+     */
+    function update() {
+      /*
+       * Movement
+       *
+       * This uses one direction only.
+       * A and D cannot both move the player
+       * or repeatedly change the image.
+       */
+      if (!isCrouching) {
+        const movementDirection =
+          getMovementDirection();
+
+        if (movementDirection === "left") {
+          x -= speed;
+          applyDirection("left");
+        } else if (movementDirection === "right") {
+          x += speed;
+          applyDirection("right");
+        }
+      }
+
+      keepCharacterInsideScreen();
+
+      /*
+       * Gravity
+       */
+      velocityY += gravity;
+      y += velocityY;
+
+      /*
+       * Ground collision
+       */
+      if (y >= groundY) {
+        y = groundY;
+        velocityY = 0;
+        isOnGround = true;
+      } else {
+        isOnGround = false;
+      }
+
+      updatePosition();
+      updateIdleAnimation();
+
+      requestAnimationFrame(update);
+    }
+
+    /*
+     * Starts crouching after S is held briefly.
+     */
+    function startCrouchTimer() {
+      if (crouchTimer || isCrouching) {
+        return;
+      }
+
+      crouchTimer = setTimeout(() => {
+        isCrouching = true;
+
+        character.src = images.crouch;
+        applyTransform(1);
+
+        idleTime = 0;
+        crouchTimer = null;
+      }, 150);
+    }
+
+    /*
+     * Stops crouching.
+     */
+    function stopCrouching() {
+      if (crouchTimer) {
+        clearTimeout(crouchTimer);
+        crouchTimer = null;
+      }
+
+      if (isCrouching) {
+        isCrouching = false;
+
+        character.src = images.forward;
+        applyTransform(1);
+
+        idleTime = 0;
+      }
+    }
+
+    /*
+     * Jump function.
+     */
+    function jump() {
+      if (!isOnGround || isCrouching) {
+        return;
+      }
+
+      velocityY = jumpPower;
+      isOnGround = false;
+      idleTime = 0;
+    }
+
+    /*
+     * Key down
+     */
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+
+      if (key === "a") {
+        keys.a = true;
+      }
+
+      if (key === "d") {
+        keys.d = true;
+      }
+
+      if (key === "s") {
+        keys.s = true;
+        startCrouchTimer();
+      }
+
+      if (key === "w") {
+        keys.w = true;
+        jump();
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+
+        if (!keys.space) {
+          jump();
+        }
+
+        keys.space = true;
+      }
+    });
+
+    /*
+     * Key up
+     */
+    document.addEventListener("keyup", (event) => {
+      const key = event.key.toLowerCase();
+
+      if (key === "a") {
+        keys.a = false;
+      }
+
+      if (key === "d") {
+        keys.d = false;
+      }
+
+      if (key === "s") {
+        keys.s = false;
+        stopCrouching();
+      }
+
+      if (key === "w") {
+        keys.w = false;
+      }
+
+      if (event.code === "Space") {
+        keys.space = false;
+      }
+    });
+
+    /*
+     * Update the ground position when the window changes size.
+     */
+    window.addEventListener("resize", () => {
+      groundY = window.innerHeight - 300;
+
+      if (y > groundY) {
+        y = groundY;
+      }
+
+      keepCharacterInsideScreen();
+      updatePosition();
+    });
+
+    /*
+     * Start the game.
+     */
+    update();
+  </script>
+</body>
+</html>
