@@ -27,17 +27,15 @@
         z-index: 5;
     }
 
-    /*
-       This is the real collision area.
-       It is smaller than the character image so the image
-       can get close to blocks without activating them.
-    */
     #characterHitbox {
         position: absolute;
         width: 70px;
         height: 25px;
         pointer-events: none;
         z-index: 10;
+        background: transparent;
+        border: none;
+        outline: none;
     }
 
     .gameBlock {
@@ -245,11 +243,6 @@ window.addEventListener("resize", () => {
    ========================================================= */
 
 function updateCharacterHitbox() {
-    /*
-       The hitbox is positioned near the character's feet.
-       Change hitboxWidth or hitboxHeight to make collisions
-       stricter or looser.
-    */
     const hitboxWidth = 70;
     const hitboxHeight = 25;
 
@@ -322,7 +315,6 @@ function updateInteractionButton() {
 }
 
 interactionButton.addEventListener("click", openUI);
-
 closeUI.addEventListener("click", closeUIWindow);
 
 gameUI.addEventListener("click", (event) => {
@@ -491,15 +483,9 @@ function update() {
         }
     }
 
-/*
-Allow the character to walk outside the screen
-*/
-    
     /*
-    x = Math.max(
-        0,
-        Math.min(x, window.innerWidth - character.offsetWidth)
-    );
+       There is intentionally no x-limit here.
+       The character can walk completely outside the screen.
     */
 
     velocityY += gravity;
