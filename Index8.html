@@ -491,10 +491,16 @@ function update() {
         }
     }
 
+/*
+Allow the character to walk outside the screen
+*/
+    
+    /*
     x = Math.max(
         0,
         Math.min(x, window.innerWidth - character.offsetWidth)
     );
+    */
 
     velocityY += gravity;
     y += velocityY;
