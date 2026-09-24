@@ -1,3 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Testing</title>
+<style>
+    body {
+        margin: 0;
+        height: 100vh;
+        position: relative;
+        background: #111;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+    }
+
+    #character {
+        width: 300px;
+        height: auto;
+        image-rendering: pixelated;
+        user-select: none;
+        -webkit-user-drag: none;
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform-origin: bottom center;
+        z-index: 5;
+    }
+
+    /*
+       This is the real collision area.
+       It is smaller than the character image so the image
+       can get close to blocks without activating them.
+    */
+    #characterHitbox {
+        position: absolute;
+        width: 70px;
+        height: 25px;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .gameBlock {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        z-index: 2;
+    }
+
+    #uiBlock {
+        left: 120px;
+        background: blue;
+    }
+
+    #bounceBlock {
+        left: 450px;
+        background: green;
+    }
+
+    #damageBlock {
+        left: 780px;
+        background: red;
+    }
+
+    #interactionButton {
+        display: none;
+        position: fixed;
+        left: 50%;
+        bottom: 30px;
+        transform: translateX(-50%);
+        z-index: 20;
+        padding: 12px 20px;
+        color: white;
+        background: blue;
+        border: 2px solid white;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    #gameUI {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.75);
+    }
+
+    #uiPanel {
+        position: relative;
+        width: min(80%, 600px);
+        min-height: 300px;
+        padding: 40px;
+        box-sizing: border-box;
+        color: white;
+        background: #202b3d;
+        border: 4px solid blue;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    #closeUI {
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        width: 38px;
+        height: 38px;
+        color: white;
+        background: red;
+        border: 2px solid white;
+        border-radius: 6px;
+        font-size: 24px;
+        line-height: 30px;
+        cursor: pointer;
+    }
+
+    #damageFlash {
+        position: fixed;
+        inset: 0;
+        z-index: 25;
+        pointer-events: none;
+        border: 0 solid rgba(255, 0, 0, 0);
+        box-sizing: border-box;
+    }
+
+    #damageFlash.active {
+        animation: damageFlashAnimation 0.35s ease-out;
+    }
+
+    @keyframes damageFlashAnimation {
+        0% {
+            border-width: 0;
+            border-color: rgba(255, 0, 0, 0);
+        }
+
+        35% {
+            border-width: 35px;
+            border-color: rgba(255, 0, 0, 0.95);
+        }
+
+        100% {
+            border-width: 12px;
+            border-color: rgba(255, 0, 0, 0);
+        }
+    }
+
+    .ground {
+        height: 25px;
+        width: auto;
+    }
+</style>
+</head>
+<body>
+<img id="character" src="ToonyTimeForward.png" alt="Character"/>
+<div id="characterHitbox"></div>
+<div id="uiBlock" class="gameBlock"></div>
+<div id="bounceBlock" class="gameBlock"></div>
+<div id="damageBlock" class="gameBlock"></div>
+<img class="ground" src="ground.png">
+<button id="interactionButton">
+    Press X to interact
+</button>
+<div id="damageFlash"></div>
+<div id="gameUI">
+    <div id="uiPanel">
+        <button id="closeUI" aria-label="Close">×</button>
+        <h1>UI Box</h1>
+        <p>You opened the blue interaction block.</p>
+        <p>Press the × button or Escape to close this window.</p>
+    </div>
+</div>
 <script>
 const character = document.getElementById("character");
 const characterHitbox = document.getElementById("characterHitbox");
@@ -16,6 +189,11 @@ const images = {
     crouch: "ToonyTimeCrouch.png",
     right: "ToonyTimeTurn1.png"
 };
+
+let currentDirection = "forward";
+let isTurning = false;
+let isCrouching = false;
+let crouchTimer = null;
 
 let x = window.innerWidth / 2;
 let y = window.innerHeight - 300;
@@ -36,16 +214,10 @@ const keys = {
     space: false
 };
 
-let currentDirection = "right";
-let isCrouching = false;
-let crouchTimer = null;
 let isOnGround = true;
-
 let isTouchingUIBlock = false;
 let isTouchingDamageBlock = false;
 let damageFlashTimeout = null;
-
-let idleTime = 0;
 
 
 /* =========================================================
@@ -55,9 +227,9 @@ let idleTime = 0;
 function positionBlocks() {
     const blockY = window.innerHeight - 200;
 
-    uiBlock.style.top = `${blockY}px`;
-    bounceBlock.style.top = `${blockY}px`;
-    damageBlock.style.top = `${blockY}px`;
+    uiBlock.style.top = blockY + "px";
+    bounceBlock.style.top = blockY + "px";
+    damageBlock.style.top = blockY + "px";
 }
 
 positionBlocks();
@@ -69,29 +241,24 @@ window.addEventListener("resize", () => {
 
 
 /* =========================================================
-   CHARACTER POSITION
+   COLLISION HELPERS
    ========================================================= */
 
-function updateCharacterPosition() {
-    character.style.left = `${x}px`;
-    character.style.top = `${y}px`;
-}
-
 function updateCharacterHitbox() {
-    const hitboxWidth = 60;
+    /*
+       The hitbox is positioned near the character's feet.
+       Change hitboxWidth or hitboxHeight to make collisions
+       stricter or looser.
+    */
+    const hitboxWidth = 70;
     const hitboxHeight = 25;
 
     characterHitbox.style.left =
-        `${x + character.offsetWidth / 2 - hitboxWidth / 2}px`;
+        (x + character.offsetWidth / 2 - hitboxWidth / 2) + "px";
 
     characterHitbox.style.top =
-        `${y + character.offsetHeight - hitboxHeight}px`;
+        (y + character.offsetHeight - hitboxHeight) + "px";
 }
-
-
-/* =========================================================
-   COLLISION HELPERS
-   ========================================================= */
 
 function getCharacterHitboxRect() {
     return characterHitbox.getBoundingClientRect();
@@ -118,52 +285,18 @@ function isCharacterInsideBlock(block) {
 }
 
 function isStandingOnBlock(block) {
-    const playerRect = getCharacterHitboxRect();
+    const characterRect = getCharacterHitboxRect();
     const blockRect = getBlockRect(block);
 
     const horizontalOverlap =
-        playerRect.right > blockRect.left &&
-        playerRect.left < blockRect.right;
+        characterRect.right > blockRect.left &&
+        characterRect.left < blockRect.right;
 
-    const feetAreNearBlock =
-        playerRect.bottom >= blockRect.top - 8 &&
-        playerRect.bottom <= blockRect.top + 8;
+    const feetAreOnBlock =
+        characterRect.bottom >= blockRect.top - 8 &&
+        characterRect.bottom <= blockRect.top + 8;
 
-    return (
-        horizontalOverlap &&
-        feetAreNearBlock &&
-        velocityY >= 0
-    );
-}
-
-
-/* =========================================================
-   DIRECTION
-   ========================================================= */
-
-function updateDirection() {
-    if (isCrouching) {
-        character.src = images.crouch;
-        character.style.transform = "scaleX(1)";
-        return;
-    }
-
-    if (keys.a && !keys.d) {
-        currentDirection = "left";
-        character.src = images.right;
-        character.style.transform = "scaleX(-1)";
-    }
-
-    if (keys.d && !keys.a) {
-        currentDirection = "right";
-        character.src = images.right;
-        character.style.transform = "scaleX(1)";
-    }
-
-    if (!keys.a && !keys.d) {
-        character.src = images.forward;
-        character.style.transform = "scaleX(1)";
-    }
+    return horizontalOverlap && feetAreOnBlock && velocityY >= 0;
 }
 
 
@@ -189,6 +322,7 @@ function updateInteractionButton() {
 }
 
 interactionButton.addEventListener("click", openUI);
+
 closeUI.addEventListener("click", closeUIWindow);
 
 gameUI.addEventListener("click", (event) => {
@@ -241,48 +375,132 @@ function updateBounceBlock() {
 
 
 /* =========================================================
-   IDLE ANIMATION
+   IDLE HEIGHT ANIMATION
    ========================================================= */
 
+let idleTime = 0;
+const idleSquash = 0.03;
+const idleSpeed = 0.07;
+
+function noButtonsPressed() {
+    return (
+        !keys.a &&
+        !keys.d &&
+        !keys.s &&
+        !keys.w &&
+        !keys.space
+    );
+}
+
 function updateIdleAnimation() {
-    const isMoving =
-        keys.a ||
-        keys.d ||
-        keys.w ||
-        keys.space ||
-        keys.s;
+    if (
+        noButtonsPressed() &&
+        isOnGround &&
+        !isCrouching
+    ) {
+        idleTime += idleSpeed;
 
-    if (!isMoving && isOnGround && !isCrouching) {
-        idleTime += 0.07;
+        const wave =
+            (Math.sin(idleTime) + 1) / 2;
 
-        const squash =
-            1 - ((Math.sin(idleTime) + 1) / 2) * 0.03;
+        const scaleY =
+            1 - (wave * idleSquash);
 
-        const directionScale =
-            currentDirection === "left" ? -1 : 1;
+        applyTransform(scaleY);
+    } else {
+        idleTime = 0;
+        applyTransform(1);
+    }
+}
 
-        character.style.transform =
-            `scale(${directionScale}, ${squash})`;
+function applyTransform(scaleY = 1) {
+    let scaleX = 1;
+
+    if (currentDirection === "left") {
+        scaleX = -1;
+    }
+
+    character.style.transform =
+        `scale(${scaleX}, ${scaleY})`;
+}
+
+
+/* =========================================================
+   DIRECTION SYSTEM
+   ========================================================= */
+
+function applyDirection(direction) {
+    if (isCrouching) {
+        character.src = images.crouch;
+        currentDirection = direction;
+        character.style.transform = "scale(1, 1)";
+        return;
+    }
+
+    currentDirection = direction;
+
+    if (direction === "left") {
+        character.src = images.right;
+        applyTransform(1);
+    } else if (direction === "right") {
+        character.src = images.right;
+        applyTransform(1);
+    } else {
+        character.src = images.forward;
+        applyTransform(1);
+    }
+}
+
+function setDirection(direction) {
+    if (isTurning || isCrouching) return;
+
+    const isSwitchingSide =
+        (currentDirection === "left" && direction === "right") ||
+        (currentDirection === "right" && direction === "left");
+
+    if (isSwitchingSide) {
+        isTurning = true;
+
+        character.src = images.forward;
+        character.style.transform = "scale(1, 1)";
+
+        setTimeout(() => {
+            applyDirection(direction);
+            isTurning = false;
+        }, 16);
+    } else {
+        applyDirection(direction);
     }
 }
 
 
 /* =========================================================
-   MAIN GAME LOOP
+   MAIN UPDATE LOOP
    ========================================================= */
 
 function update() {
-    const uiIsOpen = gameUI.style.display === "flex";
-
-    if (!uiIsOpen && !isCrouching) {
+    if (gameUI.style.display !== "flex" && !isCrouching) {
         if (keys.a) {
             x -= speed;
+            setDirection("left");
         }
 
         if (keys.d) {
             x += speed;
+            setDirection("right");
         }
     }
+
+/*
+Allow the character to walk outside the screen
+*/
+    
+    /*
+    x = Math.max(
+        0,
+        Math.min(x, window.innerWidth - character.offsetWidth)
+    );
+    */
 
     velocityY += gravity;
     y += velocityY;
@@ -295,8 +513,9 @@ function update() {
         isOnGround = false;
     }
 
-    updateDirection();
-    updateCharacterPosition();
+    character.style.left = x + "px";
+    character.style.top = y + "px";
+
     updateCharacterHitbox();
 
     updateBounceBlock();
@@ -312,8 +531,8 @@ function update() {
    KEY DOWN
    ========================================================= */
 
-document.addEventListener("keydown", (event) => {
-    const key = event.key.toLowerCase();
+document.addEventListener("keydown", (e) => {
+    const key = e.key.toLowerCase();
 
     if (key === "a") {
         keys.a = true;
@@ -321,6 +540,25 @@ document.addEventListener("keydown", (event) => {
 
     if (key === "d") {
         keys.d = true;
+    }
+
+    if (key === "s") {
+        keys.s = true;
+
+        if (!crouchTimer && !isCrouching) {
+            crouchTimer = setTimeout(() => {
+                isCrouching = true;
+
+                keys.a = false;
+                keys.d = false;
+
+                character.src = images.crouch;
+                character.style.transform = "scale(1, 1)";
+
+                idleTime = 0;
+                crouchTimer = null;
+            }, 150);
+        }
     }
 
     if (key === "w") {
@@ -333,11 +571,12 @@ document.addEventListener("keydown", (event) => {
         ) {
             velocityY = jumpPower;
             isOnGround = false;
+            idleTime = 0;
         }
     }
 
-    if (event.code === "Space") {
-        event.preventDefault();
+    if (e.code === "Space") {
+        e.preventDefault();
         keys.space = true;
 
         if (
@@ -347,19 +586,7 @@ document.addEventListener("keydown", (event) => {
         ) {
             velocityY = jumpPower;
             isOnGround = false;
-        }
-    }
-
-    if (key === "s") {
-        keys.s = true;
-
-        if (!crouchTimer && !isCrouching) {
-            crouchTimer = setTimeout(() => {
-                isCrouching = true;
-                keys.a = false;
-                keys.d = false;
-                crouchTimer = null;
-            }, 150);
+            idleTime = 0;
         }
     }
 
@@ -377,8 +604,8 @@ document.addEventListener("keydown", (event) => {
    KEY UP
    ========================================================= */
 
-document.addEventListener("keyup", (event) => {
-    const key = event.key.toLowerCase();
+document.addEventListener("keyup", (e) => {
+    const key = e.key.toLowerCase();
 
     if (key === "a") {
         keys.a = false;
@@ -392,7 +619,7 @@ document.addEventListener("keyup", (event) => {
         keys.w = false;
     }
 
-    if (event.code === "Space") {
+    if (e.code === "Space") {
         keys.space = false;
     }
 
@@ -406,6 +633,7 @@ document.addEventListener("keyup", (event) => {
 
         if (isCrouching) {
             isCrouching = false;
+            applyDirection(currentDirection);
             idleTime = 0;
         }
     }
@@ -418,3 +646,5 @@ document.addEventListener("keyup", (event) => {
 
 update();
 </script>
+</body>
+</html>
