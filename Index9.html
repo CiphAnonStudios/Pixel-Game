@@ -32,11 +32,11 @@
         position: absolute;
         width: 180px;
         height: 35px;
-        object-fit: fill;
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: 50%;
+        filter: blur(8px);
         pointer-events: none;
-        user-select: none;
         z-index: 4;
-        opacity: 0.65;
         transform: translateX(-50%);
     }
 
@@ -161,14 +161,14 @@
 <body>
 
 <img id="character" src="ToonyTimeForward.png" alt="Character"/>
-<img id="characterShadow" src="shadow.png" alt=""/>
+<div id="characterShadow"></div>
 <div id="characterHitbox"></div>
 
 <div id="uiBlock" class="gameBlock"></div>
 <div id="bounceBlock" class="gameBlock"></div>
 <div id="damageBlock" class="gameBlock"></div>
 
-<img class="ground" src="ground.png" alt="Ground">
+<img class="ground" src="ground.png" alt="Ground"/>
 
 <button id="interactionButton">
     Press X to interact
@@ -194,7 +194,9 @@ const uiBlock = document.getElementById("uiBlock");
 const bounceBlock = document.getElementById("bounceBlock");
 const damageBlock = document.getElementById("damageBlock");
 
-const interactionButton = document.getElementById("interactionButton");
+const interactionButton =
+    document.getElementById("interactionButton");
+
 const gameUI = document.getElementById("gameUI");
 const closeUI = document.getElementById("closeUI");
 const damageFlash = document.getElementById("damageFlash");
@@ -306,7 +308,11 @@ function isStandingOnBlock(block) {
         characterRect.bottom >= blockRect.top - 8 &&
         characterRect.bottom <= blockRect.top + 8;
 
-    return horizontalOverlap && feetAreOnBlock && velocityY >= 0;
+    return (
+        horizontalOverlap &&
+        feetAreOnBlock &&
+        velocityY >= 0
+    );
 }
 
 
@@ -326,7 +332,8 @@ function updateInteractionButton() {
     isTouchingUIBlock = isCharacterInsideBlock(uiBlock);
 
     interactionButton.style.display =
-        isTouchingUIBlock && gameUI.style.display !== "flex"
+        isTouchingUIBlock &&
+        gameUI.style.display !== "flex"
             ? "block"
             : "none";
 }
@@ -414,7 +421,7 @@ function updateIdleAnimation() {
             (Math.sin(idleTime) + 1) / 2;
 
         const scaleY =
-            1 - (wave * idleSquash);
+            1 - wave * idleSquash;
 
         applyTransform(scaleY);
     } else {
@@ -462,11 +469,15 @@ function applyDirection(direction) {
 }
 
 function setDirection(direction) {
-    if (isTurning || isCrouching) return;
+    if (isTurning || isCrouching) {
+        return;
+    }
 
     const isSwitchingSide =
-        (currentDirection === "left" && direction === "right") ||
-        (currentDirection === "right" && direction === "left");
+        (currentDirection === "left" &&
+            direction === "right") ||
+        (currentDirection === "right" &&
+            direction === "left");
 
     if (isSwitchingSide) {
         isTurning = true;
@@ -485,11 +496,56 @@ function setDirection(direction) {
 
 
 /* =========================================================
+   SHADOW
+   ========================================================= */
+
+function updateShadow() {
+    const characterCenterX =
+        x + character.offsetWidth / 2;
+
+    /*
+       Keep the shadow on the ground.
+       It no longer follows the character's Y position.
+    */
+    const shadowY =
+        groundY + character.offsetHeight - 25;
+
+    const distanceFromGround =
+        Math.max(0, groundY - y);
+
+    const shadowScale = Math.max(
+        0.55,
+        1 - distanceFromGround / 250
+    );
+
+    const shadowOpacity = Math.max(
+        0.2,
+        0.65 - distanceFromGround / 500
+    );
+
+    characterShadow.style.left =
+        characterCenterX + "px";
+
+    characterShadow.style.top =
+        shadowY + "px";
+
+    characterShadow.style.transform =
+        `translateX(-50%) scaleX(${shadowScale})`;
+
+    characterShadow.style.opacity =
+        shadowOpacity;
+}
+
+
+/* =========================================================
    MAIN UPDATE LOOP
    ========================================================= */
 
 function update() {
-    if (gameUI.style.display !== "flex" && !isCrouching) {
+    if (
+        gameUI.style.display !== "flex" &&
+        !isCrouching
+    ) {
         if (keys.a) {
             x -= speed;
             setDirection("left");
@@ -515,32 +571,7 @@ function update() {
     character.style.left = x + "px";
     character.style.top = y + "px";
 
-    const characterCenterX =
-        x + character.offsetWidth / 2;
-
-    const characterBottomY =
-        y + character.offsetHeight;
-
-    characterShadow.style.left =
-        characterCenterX + "px";
-
-    characterShadow.style.top =
-        (characterBottomY - 25) + "px";
-
-    const shadowScale = Math.max(
-        0.55,
-        1 - Math.abs(groundY - y) / 250
-    );
-
-    characterShadow.style.transform =
-        `translateX(-50%) scaleX(${shadowScale})`;
-
-    characterShadow.style.opacity =
-        Math.max(
-            0.2,
-            0.65 - Math.abs(groundY - y) / 500
-        );
-
+    updateShadow();
     updateCharacterHitbox();
 
     updateBounceBlock();
@@ -578,7 +609,8 @@ document.addEventListener("keydown", (e) => {
                 keys.d = false;
 
                 character.src = images.crouch;
-                character.style.transform = "scale(1, 1)";
+                character.style.transform =
+                    "scale(1, 1)";
 
                 idleTime = 0;
                 crouchTimer = null;
