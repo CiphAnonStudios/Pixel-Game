@@ -30,7 +30,7 @@
 
     #characterShadow {
         position: absolute;
-        width: 180px;
+        width: 125px;
         height: 35px;
         background: rgba(0, 0, 0, 0.45);
         border-radius: 50%;
@@ -500,8 +500,11 @@ function setDirection(direction) {
    ========================================================= */
 
 function updateShadow() {
+    const shadowXOffset = -10;
+    // Negative moves the shadow left, positive moves it right.
+
     const characterCenterX =
-        x + character.offsetWidth / 2;
+        x + character.offsetWidth / 2 + shadowXOffset;
 
     /*
        Keep the shadow on the ground.
@@ -535,7 +538,6 @@ function updateShadow() {
     characterShadow.style.opacity =
         shadowOpacity;
 }
-
 
 /* =========================================================
    MAIN UPDATE LOOP
